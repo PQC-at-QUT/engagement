@@ -2,9 +2,10 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Live AES Encryption Demo</title>
+<title>PQC at QUT</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsencrypt/bin/jsencrypt.min.js"></script>
 
 <style>
 body{
@@ -13,10 +14,10 @@ body{
   margin:40px auto;
 }
 
-textarea,input{
+textarea,input,select{
   width:100%;
-  margin-top:10px;
   padding:8px;
+  margin-top:10px;
   font-size:16px;
 }
 
@@ -24,47 +25,166 @@ textarea{
   height:90px;
 }
 
+#algorithm {
+  font-size: 16px;
+  font-weight: bold;
+  padding: 10px;
+}
+
 #ciphertext{
   background:#f3f3f3;
 }
-</style>
 
+#rsaSection{
+  display:none;
+}
+</style>
 </head>
 
 <body>
 
-<h1>Live AES Encryption</h1>
+<h1>Encryption Demo</h1>
 
-<p>Encryption updates automatically while typing.</p>
+<label>Algorithm</label>
+<select id="algorithm">
+  <option value="caesar">Caesar</option>
+  <option value="vigenere">Vigenère</option>
+  <option value="xor">XOR</option>
+  <option value="aes">AES</option>
+  <option value="rsa">RSA</option>
+</select>
 
 <label>Message</label>
-<textarea id="plaintext" placeholder="Type a message"></textarea>
+<textarea id="plaintext"></textarea>
 
-<label>Password / Key</label>
-<input id="key" placeholder="Type a key">
+<label>Key / Shift</label>
+<input id="key">
 
 <h3>Ciphertext</h3>
 <textarea id="ciphertext" readonly></textarea>
 
+<div id="rsaSection">
+  <h3>Public Key</h3>
+  <textarea id="publickey" readonly></textarea>
+</div>
+
 <script>
+let rsa = new JSEncrypt({default_key_size: 1024});
+rsa.getKey(); // generate key pair
 
-function encrypt(){
+function update(){
 
+  const algo = document.getElementById("algorithm").value;
   const text = document.getElementById("plaintext").value;
   const key = document.getElementById("key").value;
+  const rsaSection = document.getElementById("rsaSection");
+  document.getElementById("publickey").value = rsa.getPublicKey();
 
-  if(text === "" || key === ""){
-    document.getElementById("ciphertext").value = "";
+  // Display public key only if RSA is selected
+  if(algo === "rsa"){
+    rsaSection.style.display = "block";
+  } else{
+    rsaSection.style.display = "none";
+  }
+
+  if(text === "" || key === "" ){
+    document.getElementById("ciphertext").value = "Input plaintext message and key/shift.";
     return;
   }
 
-  const encrypted = CryptoJS.AES.encrypt(text, key).toString();
+  let result = "";
 
-  document.getElementById("ciphertext").value = encrypted;
+  if(algo === "rsa"){
+    result = rsa.encrypt(text);
+
+  } 
+
+  if(algo === "caesar"){
+    result = caesar(text, parseInt(key));
+  }
+
+  if(algo === "vigenere"){
+    result = vigenere(text, key);
+  }
+
+  if(algo === "xor"){
+    result = xorCipher(text, key);
+  }
+
+  if(algo === "aes"){
+    result = CryptoJS.AES.encrypt(text, key).toString();
+  }
+
+
+  document.getElementById("ciphertext").value = result;
 }
 
-document.getElementById("plaintext").addEventListener("input", encrypt);
-document.getElementById("key").addEventListener("input", encrypt);
+function caesar(text, shift){
+  text = text.toUpperCase();
+  let result = "";
+
+  for(let i=0;i<text.length;i++){
+
+    let c = text.charCodeAt(i);
+
+    if(c>=65 && c<=90){
+      result += String.fromCharCode((c-65+shift)%26+65);
+    }else{
+      result += text[i];
+    }
+
+  }
+
+  return result;
+}
+
+function vigenere(text,key){
+
+  text = text.toUpperCase();
+  key = key.toUpperCase();
+
+  let result = "";
+  let k=0;
+
+  for(let i=0;i<text.length;i++){
+
+    let c=text.charCodeAt(i);
+
+    if(c>=65 && c<=90){
+
+      let shift = key.charCodeAt(k%key.length)-65;
+
+      result+=String.fromCharCode((c-65+shift)%26+65);
+
+      k++;
+
+    }else{
+      result+=text[i];
+    }
+  }
+
+  return result;
+}
+
+function xorCipher(text,key){
+
+  let result="";
+
+  for(let i=0;i<text.length;i++){
+
+    let t=text.charCodeAt(i);
+    let k=key.charCodeAt(i%key.length);
+
+    result+=String.fromCharCode(t^k);
+
+  }
+
+  return result;
+}
+
+document.getElementById("plaintext").addEventListener("input",update);
+document.getElementById("key").addEventListener("input",update);
+document.getElementById("algorithm").addEventListener("change",update);
 
 </script>
 
