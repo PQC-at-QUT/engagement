@@ -1,11 +1,72 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PQC at QUT Engagement</title>
+<meta charset="UTF-8">
+<title>Live AES Encryption Demo</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
+<style>
+body{
+  font-family: Arial;
+  max-width:700px;
+  margin:40px auto;
+}
+
+textarea,input{
+  width:100%;
+  margin-top:10px;
+  padding:8px;
+  font-size:16px;
+}
+
+textarea{
+  height:90px;
+}
+
+#ciphertext{
+  background:#f3f3f3;
+}
+</style>
+
 </head>
+
 <body>
-  <h1>PQC at QUT</h1>
-  <p>Website coming soon.</p>
+
+<h1>Live AES Encryption</h1>
+
+<p>Encryption updates automatically while typing.</p>
+
+<label>Message</label>
+<textarea id="plaintext" placeholder="Type a message"></textarea>
+
+<label>Password / Key</label>
+<input id="key" placeholder="Type a key">
+
+<h3>Ciphertext</h3>
+<textarea id="ciphertext" readonly></textarea>
+
+<script>
+
+function encrypt(){
+
+  const text = document.getElementById("plaintext").value;
+  const key = document.getElementById("key").value;
+
+  if(text === "" || key === ""){
+    document.getElementById("ciphertext").value = "";
+    return;
+  }
+
+  const encrypted = CryptoJS.AES.encrypt(text, key).toString();
+
+  document.getElementById("ciphertext").value = encrypted;
+}
+
+document.getElementById("plaintext").addEventListener("input", encrypt);
+document.getElementById("key").addEventListener("input", encrypt);
+
+</script>
+
 </body>
 </html>
