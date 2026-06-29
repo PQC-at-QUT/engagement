@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>RSA Activity</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js"></script>
+  <style>
+    /* QUT Brand */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+    }
+    .qut-header {
+      background: #00407A;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .qut-header-title {
+      color: #fff;
+      font-size: 18px;
+      font-weight: bold;
+      border-left: 2px solid rgba(255,255,255,0.4);
+      padding-left: 16px;
+    }
+    .qut-footer {
+      background: #00407A;
+      height: 6px;
+      margin-top: 40px;
+    }
+    .page-content {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 32px 32px 60px;
+      background: #fff;
+      border-left: 5px solid #00407A;
+      border-right: 5px solid #00407A;
+      min-height: calc(100vh - 74px - 6px);
+      box-sizing: border-box;
+    }
+    h2 {
+      margin-top: 32px;
+    }
+    label {
+      display: block;
+      margin-top: 16px;
+    }
+    input[type="number"] {
+      width: 80px;
+      padding: 6px;
+      font-size: 15px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 6px;
+      font-size: 15px;
+      box-sizing: border-box;
+      margin-top: 6px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 7px 18px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .prime-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .prime-row button {
+      margin-top: 0;
+    }
+    .prime-result {
+      flex: 1;
+      padding: 6px;
+      font-size: 15px;
+      background: #f3f3f3;
+      border: 1px solid #ccc;
+      min-width: 120px;
+      word-break: break-all;
+    }
+    .hint {
+      font-size: 13px;
+      color: #666;
+      margin-top: 6px;
+    }
+    .secret-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .secret-row label {
+      margin: 0;
+      white-space: nowrap;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<header class="qut-header">
+  <a href="https://www.qut.edu.au" target="_blank">
+    <img src="QUTforPQC.png" alt="QUT for PQC logo" height="128" style="display:block;">
+  </a>
+  <span class="qut-header-title">RSA Activity</span>
+</header>
+
+<div class="page-content">
+  <h1>RSA Activity</h1>
+  <p><a href="index.html">← Back to Cryptography Demo</a></p>
+
+  <h2>Step 1. Generate your two secret prime numbers.</h2>
+
+  <label>Generate random prime with <select id="digitCount" style="width:80px;padding:6px;font-size:15px;">
+  <option>1</option>
+  <option>2</option>
+  <option>3</option>
+  <option>4</option>
+  <option>5</option>
+  <option>6</option>
+  <option>7</option>
+  <option>8</option>
+  <option>9</option>
+  <option selected>10</option>
+</select> decimal digits</label>
+
+
+  <div class="prime-row" style="align-items:center;">
+    <button onclick="generatePrime()">Generate</button>
+    <span class="prime-result" id="primeResult">—</span>
+    <button onclick="copyPrime()" id="copyBtn" style="margin-top:0;">Copy</button>
+  </div>
+
+  <p style="margin-top:24px;"><em>Input your two secret primes below (using the prime number tool above).</em></p>
+
+  <div class="secret-row">
+    <label>secret prime: <em>p</em> =</label>
+    <input type="text" id="primeP" placeholder="enter p" oninput="updateStep2()">
+  </div>
+
+  <div class="secret-row">
+    <label>secret prime: <em>q</em> =</label>
+    <input type="text" id="primeQ" placeholder="enter q" oninput="updateStep2()">
+  </div>
+
+  <h2>Step 2. The public key.</h2>
+
+  <div class="secret-row">
+    <label>public modulus: <em>n</em> = <em>p</em> × <em>q</em> =</label>
+    <span class="prime-result" id="nResult">—</span>
+  </div>
+
+  <div class="secret-row" style="margin-top:16px;">
+    <label>public exponent: <em>e</em> =</label>
+    <input type="text" id="eInput" placeholder="enter e" oninput="updateStep2()" style="width:200px;">
+  </div>
+  <div class="hint" id="gcdHint"></div>
+  <p style="margin-top:10px;"><em>Write your public key (n, e) on your name plate.</em></p>
+
+  <h2>Step 3. The secret decryption exponent.</h2>
+
+  <div class="secret-row">
+    <label>secret decryption exponent: <em>d</em> =</label>
+    <span class="prime-result" id="dResult">—</span>
+  </div>
+  <p style="margin-top:10px;font-style:italic;line-height:1.8;">
+    The secret <em>d</em> is computed so that <em>d</em> × <em>e</em> == 1 mod φ(<em>n</em>).<br>
+    This ensures that (<em>m</em><sup><em>e</em></sup>)<sup><em>d</em></sup> == 1 mod <em>n</em>.<br>
+    The value of φ(<em>n</em>) (and hence the secret <em>d</em>) is computed from <em>p</em> and <em>q</em>.
+  </p>
+
+  <hr style="margin-top:40px;border:none;border-top:2px solid #00407A;">
+
+  <h2>ENCRYPT MESSAGES</h2>
+
+  <p><em>Enter the recipient's public key:</em></p>
+
+  <div class="secret-row">
+    <label>modulus <em>n</em> =</label>
+    <input type="text" id="encN" placeholder="enter n" oninput="updateEncrypt()">
+  </div>
+  <div class="secret-row">
+    <label>exponent <em>e</em> =</label>
+    <input type="text" id="encE" placeholder="enter e" oninput="updateEncrypt()">
+  </div>
+
+  <p style="margin-top:16px;"><em>Enter the plaintext message:</em></p>
+
+  <div class="secret-row" style="margin-top:0;">
+    <label>message <em>m</em> =</label>
+    <input type="text" id="encMessage" placeholder="enter plaintext" oninput="updateEncrypt()">
+  </div>
+  <div class="hint" id="encMessageError" style="color:#c0392b;"></div>
+
+  <div class="secret-row" style="margin-top:8px;">
+    <label>ASCII conversion <em>m</em> =</label>
+    <span class="prime-result" id="encAscii">—</span>
+  </div>
+  <div class="hint">ASCII converts each character to its numeric code and concatenates them (e.g. "Hi" → 072105).</div>
+
+  <div class="secret-row" style="margin-top:16px;">
+    <label>ciphertext <em>c</em> = <em>m</em><sup><em>e</em></sup> (mod <em>n</em>) =</label>
+    <span class="prime-result" id="encCiphertext">—</span>
+  </div>
+
+  <p style="margin-top:16px;"><em>Write this ciphertext down and have it delivered to your recipient.</em></p>
+
+  <h2>DECRYPT MESSAGES</h2>
+
+  <div class="secret-row">
+    <label>ciphertext <em>c</em> =</label>
+    <input type="text" id="decC" placeholder="enter ciphertext" oninput="updateDecrypt()">
+  </div>
+
+  <p style="margin-top:16px;">The corresponding plaintext:</p>
+
+  <div class="secret-row" style="margin-top:0;">
+    <label>ASCII <em>m</em> = <em>c</em><sup><em>d</em></sup> mod <em>n</em> =</label>
+    <span class="prime-result" id="decAscii">—</span>
+  </div>
+
+  <div class="secret-row" style="margin-top:8px;">
+    <label>plaintext conversion =</label>
+    <span class="prime-result" id="decPlaintext">—</span>
+  </div>
+
+  <script>
+
+    function updateDecrypt() {
+      const cVal = document.getElementById("decC").value.trim();
+      const asciiEl    = document.getElementById("decAscii");
+      const plaintextEl = document.getElementById("decPlaintext");
+
+      asciiEl.textContent = "—";
+      plaintextEl.textContent = "—";
+
+      if (!cVal || !/^\d+$/.test(cVal)) return;
+
+      // Use p, q, d from Step 1/3
+      const pVal = document.getElementById("primeP").value.trim();
+      const qVal = document.getElementById("primeQ").value.trim();
+      const dVal = document.getElementById("dResult").textContent.trim();
+
+      if (!pVal || !qVal || !dVal || dVal === "—") return;
+
+      const n = BigInt(pVal) * BigInt(qVal);
+      const d = BigInt(dVal);
+      const c = BigInt(cVal);
+
+      const mNum = modPow(c, d, n).toString();
+
+      // Decode: split into 3-digit chunks from the right and convert each to a character
+      const padded = mNum.padStart(Math.ceil(mNum.length / 3) * 3, "0");
+      let text = "";
+      for (let i = 0; i < padded.length; i += 3) {
+        const code = parseInt(padded.slice(i, i + 3), 10);
+        text += String.fromCodePoint(code);
+      }
+      plaintextEl.textContent = text;
+      asciiEl.textContent = mNum;
+    }
+
+    function copyPrime() {
+      const val = document.getElementById("primeResult").textContent;
+      if (val === "—" || val === "Generating…") return;
+      navigator.clipboard.writeText(val).then(() => {
+        const btn = document.getElementById("copyBtn");
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy", 1500);
+      });
+    }
+
+    function updateEncrypt() {
+      const nVal = document.getElementById("encN").value.trim();
+      const eVal = document.getElementById("encE").value.trim();
+      const msg  = document.getElementById("encMessage").value;
+      const errEl     = document.getElementById("encMessageError");
+      const asciiEl   = document.getElementById("encAscii");
+      const cipherEl  = document.getElementById("encCiphertext");
+
+      // Reset
+      errEl.textContent = "";
+      asciiEl.textContent = "—";
+      cipherEl.textContent = "—";
+
+      if (!msg) return;
+
+      // Convert message to ASCII number by concatenating char codes (each padded to 3 digits)
+      let asciiStr = "";
+      for (const ch of msg) {
+        asciiStr += ch.codePointAt(0).toString().padStart(3, "0");
+      }
+      asciiEl.textContent = asciiStr;
+
+      if (!nVal || !eVal || !/^\d+$/.test(nVal) || !/^\d+$/.test(eVal)) return;
+
+      const n = BigInt(nVal);
+      const e = BigInt(eVal);
+      const m = BigInt(asciiStr);
+
+      if (m >= n) {
+        errEl.textContent = "⚠ Message is too large for this key (ASCII value ≥ n). Use a shorter message or a larger key.";
+        return;
+      }
+
+      cipherEl.textContent = modPow(m, e, n).toString();
+    }
+
+    function modPow(base, exp, mod) {
+      let result = 1n;
+      base = base % mod;
+      while (exp > 0n) {
+        if (exp % 2n === 1n) result = result * base % mod;
+        exp = exp >> 1n;
+        base = base * base % mod;
+      }
+      return result;
+    }
+
+    function gcd(a, b) {
+      while (b) { [a, b] = [b, a % b]; }
+      return a;
+    }
+
+    function modInverse(a, m) {
+      let [old_r, r] = [a, m];
+      let [old_s, s] = [1n, 0n];
+      while (r !== 0n) {
+        const q = old_r / r;
+        [old_r, r] = [r, old_r - q * r];
+        [old_s, s] = [s, old_s - q * s];
+      }
+      return ((old_s % m) + m) % m;
+    }
+
+    function updateStep2() {
+      const pVal = document.getElementById("primeP").value.trim();
+      const qVal = document.getElementById("primeQ").value.trim();
+      const eVal = document.getElementById("eInput").value.trim();
+      const nEl  = document.getElementById("nResult");
+      const hint = document.getElementById("gcdHint");
+
+      // Compute n = p * q
+      if (pVal && qVal && /^\d+$/.test(pVal) && /^\d+$/.test(qVal)) {
+        const p = BigInt(pVal);
+        const q = BigInt(qVal);
+
+        if (p === q) {
+          nEl.textContent = "—";
+          hint.textContent = "✗ p and q must be different primes.";
+          hint.style.color = "#c0392b";
+          document.getElementById("dResult").textContent = "—";
+          return;
+        }
+        nEl.textContent = (p * q).toString();
+
+        // Compute GCD(e, phi(n)) = GCD(e, (p-1)(q-1))
+        if (eVal && /^\d+$/.test(eVal)) {
+          const e = BigInt(eVal);
+          const phi = (p - 1n) * (q - 1n);
+          const g = gcd(e, phi);
+          if (g === 1n) {
+            hint.textContent = "✓ e and φ(n) are coprime.";
+            hint.style.color = "#27ae60";
+            document.getElementById("dResult").textContent = modInverse(e, phi).toString();
+          } else {
+            hint.textContent = `✗ e and φ(n) are not coprime. Choose a different e.`;
+            hint.style.color = "#c0392b";
+            document.getElementById("dResult").textContent = "—";
+          }
+        } else {
+          hint.textContent = "";
+          document.getElementById("dResult").textContent = "—";
+        }
+      } else {
+        nEl.textContent = "—";
+        hint.textContent = "";
+        document.getElementById("dResult").textContent = "—";
+      }
+    }
+
+    function generatePrime() {
+      const N = parseInt(document.getElementById("digitCount").value);
+      if (isNaN(N) || N < 1) return;
+
+      document.getElementById("primeResult").textContent = "Generating…";
+
+      // Generate a random N-digit number in [10^(N-1), 10^N - 1] and find next prime
+      setTimeout(() => {
+        const lo = N === 1 ? 2n : BigInt("1" + "0".repeat(N - 1));
+        const hi = BigInt("1" + "0".repeat(N)) - 1n;
+
+        // Random BigInt in [lo, hi]
+        function randomInRange() {
+          const range = hi - lo + 1n;
+          const bytes = new Uint8Array(Math.ceil(N * Math.log2(10) / 8) + 2);
+          crypto.getRandomValues(bytes);
+          let r = 0n;
+          for (const b of bytes) r = (r << 8n) | BigInt(b);
+          return lo + (r % range);
+        }
+
+        // Miller-Rabin primality test
+        function isPrime(n, rounds = 10) {
+          if (n < 2n) return false;
+          if (n === 2n || n === 3n || n === 5n) return true;
+          if (n % 2n === 0n) return false;
+          let d = n - 1n, r = 0n;
+          while (d % 2n === 0n) { d /= 2n; r++; }
+          witnesses: for (let i = 0; i < rounds; i++) {
+            const aBytes = new Uint8Array(8);
+            crypto.getRandomValues(aBytes);
+            let a = 2n;
+            for (const b of aBytes) a = (a << 8n) | BigInt(b);
+            a = (a % (n - 4n)) + 2n;
+            let x = modPow(a, d, n);
+            if (x === 1n || x === n - 1n) continue;
+            for (let j = 0n; j < r - 1n; j++) {
+              x = modPow(x, 2n, n);
+              if (x === n - 1n) continue witnesses;
+            }
+            return false;
+          }
+          return true;
+        }
+
+        // Find a prime: start from a random odd number, increment by 2
+        let candidate = randomInRange();
+        if (candidate % 2n === 0n) candidate++;
+        while (candidate <= hi) {
+          if (isPrime(candidate)) {
+            document.getElementById("primeResult").textContent = candidate.toString();
+            return;
+          }
+          candidate += 2n;
+        }
+        // If we hit the top, try again from a new random start
+        setTimeout(() => generatePrime(), 0);
+      }, 10);
+    }
+  </script>
+</div>
+<div class="qut-footer"></div>
+</body>
+</html>

@@ -1,11 +1,517 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PQC at QUT Engagement</title>
+<meta charset="UTF-8">
+<title>Cryptography Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsencrypt/bin/jsencrypt.min.js"></script>
+<style>
+/* QUT Brand */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background: #f0f4f8;
+}
+.qut-header {
+  background: #00407A;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.qut-header-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  border-left: 2px solid rgba(255,255,255,0.4);
+  padding-left: 16px;
+}
+.qut-footer {
+  background: #00407A;
+  height: 6px;
+  margin-top: 40px;
+}
+.page-content {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 32px 32px 60px;
+  background: #fff;
+  border-left: 5px solid #00407A;
+  border-right: 5px solid #00407A;
+  min-height: calc(100vh - 74px - 6px);
+  box-sizing: border-box;
+}
+textarea, input, select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 10px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+textarea {
+  height: 90px;
+}
+label, h3 {
+  display: block;
+  margin-top: 20px;
+}
+#algorithm {
+  font-size: 16px;
+  font-weight: bold;
+  padding: 10px;
+}
+#output {
+  background: #f3f3f3;
+}
+#rsaSection {
+  display: none;
+}
+
+/* Toggle styles */
+.mode-toggle {
+  display: inline-flex;
+  border: 2px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 16px;
+  margin-bottom: 4px;
+}
+.mode-toggle button {
+  padding: 8px 28px;
+  font-size: 15px;
+  font-weight: bold;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-toggle button.active {
+  background: #333;
+  color: #fff;
+}
+.mode-toggle button:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: -2px;
+}
+
+/* Hint text under inputs */
+.hint {
+  font-size: 13px;
+  color: #666;
+  margin-top: 5px;
+}
+</style>
 </head>
 <body>
-  <h1>PQC at QUT</h1>
-  <p>Website coming soon.</p>
+
+<header class="qut-header">
+  <a href="https://www.qut.edu.au" target="_blank">
+    <img src="QUTforPQC.png" alt="QUT for PQC logo" height="128" style="display:block;">
+  </a>
+  <span class="qut-header-title">Cryptography Demo</span>
+</header>
+
+<div class="page-content">
+<nav><a href="rsa_activity.html">RSA Activity</a></nav>
+
+<div class="mode-toggle">
+  <button id="btnEncrypt" class="active" onclick="setMode('encrypt')">Encrypt</button>
+  <button id="btnDecrypt" onclick="setMode('decrypt')">Decrypt</button>
+</div>
+
+<br>
+<label>Algorithm</label>
+<select id="algorithm">
+  <option value="caesar">Caesar</option>
+  <option value="vigenere">Vigenère</option>
+  <option value="xor">XOR</option>
+  <option value="aes">AES</option>
+  <option value="rsa">RSA</option>
+  <option value="elgamal">ElGamal</option>
+</select>
+
+<label id="inputLabel">Plaintext</label>
+<textarea id="inputText" placeholder="Enter your message here…"></textarea>
+<div class="hint" id="messageHint"></div>
+
+<label>Key / Shift</label>
+<input id="key" placeholder="Enter key or shift value…">
+<div class="hint" id="keyHint"></div>
+
+<h3 id="outputLabel">Ciphertext</h3>
+<textarea id="output" readonly></textarea>
+
+<div id="rsaSection">
+  <h3>Public Key</h3>
+  <textarea id="publickey" readonly></textarea>
+  <h3 style="display:inline-block;margin-right:10px;">Private Key</h3>
+  <button id="togglePrivateKey" onclick="togglePrivateKey()" style="font-size:13px;padding:3px 10px;cursor:pointer;">Show</button>
+  <div id="privatekeyPlaceholder" style="height:90px;margin-top:10px;background:#e0e0e0;border:1px solid #bbb;border-radius:3px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;">🔒 Hidden</div>
+  <textarea id="privatekey" readonly style="display:none;"></textarea>
+</div>
+
+<div id="elgamalSection" style="display:none;">
+  <h3>Public Key (p, g, y)</h3>
+  <textarea id="elgamalPublicKey" readonly></textarea>
+  <h3 style="display:inline-block;margin-right:10px;">Private Key (x)</h3>
+  <button id="toggleElgamalPrivateKey" onclick="toggleElgamalPrivateKey()" style="font-size:13px;padding:3px 10px;cursor:pointer;">Show</button>
+  <div id="elgamalPrivatekeyPlaceholder" style="height:90px;margin-top:10px;background:#e0e0e0;border:1px solid #bbb;border-radius:3px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;">🔒 Hidden</div>
+  <textarea id="elgamalPrivateKey" readonly style="display:none;"></textarea>
+</div>
+
+<script>
+let mode = "encrypt";
+
+let rsa = new JSEncrypt({ default_key_size: 1024 });
+rsa.getKey();
+
+// ── ElGamal helpers (must be defined before EG init) ──
+
+function modPow(base, exp, mod) {
+  let result = 1n;
+  base = base % mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) result = result * base % mod;
+    exp = exp >> 1n;
+    base = base * base % mod;
+  }
+  return result;
+}
+
+function modInverse(a, m) {
+  let [old_r, r] = [a, m];
+  let [old_s, s] = [1n, 0n];
+  while (r !== 0n) {
+    const q = old_r / r;
+    [old_r, r] = [r, old_r - q * r];
+    [old_s, s] = [s, old_s - q * s];
+  }
+  return ((old_s % m) + m) % m;
+}
+
+// ── ElGamal setup (BigInt) ──
+const EG = (() => {
+  // Safe prime (RFC 3526 / IKE group 1, 768-bit) — well-known and verified
+  const p = BigInt(
+    "0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+    "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+    "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+    "E485B576625E7EC6F44C42E9A63A3620FFFFFFFFFFFFFFFF"
+  );
+  const g = 2n;
+  function randBig(bits) {
+    const bytes = new Uint8Array(bits / 8);
+    crypto.getRandomValues(bytes);
+    let n = 0n;
+    for (const b of bytes) n = (n << 8n) | BigInt(b);
+    return n;
+  }
+  const x = (randBig(256) % (p - 3n)) + 2n;
+  const y = modPow(g, x, p);
+  return { p, g, x, y };
+})();
+
+function elgamalEncrypt(text) {
+  const { p, g, y } = EG;
+  const pairs = [];
+  for (const ch of text) {
+    const m = BigInt(ch.codePointAt(0));
+    // random k in [2, p-2]
+    const kBytes = new Uint8Array(32);
+    crypto.getRandomValues(kBytes);
+    let k = 0n;
+    for (const b of kBytes) k = (k << 8n) | BigInt(b);
+    k = (k % (p - 3n)) + 2n;
+    const c1 = modPow(g, k, p);
+    const c2 = (m * modPow(y, k, p)) % p;
+    pairs.push(`${c1}:${c2}`);
+  }
+  return pairs.join("|");
+}
+
+function elgamalDecrypt(ciphertext) {
+  const { p, x } = EG;
+  try {
+    const pairs = ciphertext.trim().split("|");
+    let result = "";
+    for (const pair of pairs) {
+      const [c1s, c2s] = pair.split(":");
+      const c1 = BigInt(c1s.trim());
+      const c2 = BigInt(c2s.trim());
+      const s = modPow(c1, x, p);
+      const sInv = modInverse(s, p);
+      const m = (c2 * sInv) % p;
+      result += String.fromCodePoint(Number(m));
+    }
+    return result;
+  } catch (e) {
+    return "ElGamal decryption failed — ensure ciphertext is from this session.";
+  }
+}
+
+// Per-algorithm hints and validators
+const ALGO_INFO = {
+  caesar: {
+    messageHint: "Letters only — digits and punctuation are passed through unchanged. Text is converted to uppercase.",
+    keyHint: "A whole number (e.g. 3). Values outside 1–25 are wrapped automatically.",
+    validateKey: (k) => {
+      if (k.trim() === "") return null;
+      if (!/^-?\d+$/.test(k.trim())) return "Shift must be a whole number (e.g. 3 or 13).";
+      return null;
+    },
+    validateMessage: () => null,
+  },
+  vigenere: {
+    messageHint: "Letters only — digits and punctuation are passed through unchanged. Text is converted to uppercase.",
+    keyHint: "A word or phrase using letters only (e.g. SECRET). Numbers and symbols are not allowed.",
+    validateKey: (k) => {
+      if (k.trim() === "") return null;
+      if (!/^[a-zA-Z]+$/.test(k.trim())) return "Key must contain letters only (e.g. KEY or SECRET).";
+      return null;
+    },
+    validateMessage: () => null,
+  },
+  xor: {
+    messageHint: "Any text.",
+    keyHint: "Any text string. Using the same key again will decrypt the result.",
+    validateKey: () => null,
+    validateMessage: () => null,
+  },
+  aes: {
+    messageHint: "Any text.",
+    keyHint: "Any passphrase (e.g. mySecretPass123). Longer is stronger.",
+    validateKey: () => null,
+    validateMessage: () => null,
+  },
+  rsa: {
+    messageHint: "Any text. Note: RSA can only encrypt short messages (limited by key size).",
+    keyHint: "No key needed — RSA uses the generated key pair shown below.",
+    validateKey: () => null,
+    validateMessage: (text, m) => {
+      if (m === "encrypt" && text.length > 100) {
+        return "Message may be too long for RSA with a 1024-bit key (max ~117 bytes).";
+      }
+      return null;
+    },
+  },
+  elgamal: {
+    messageHint: "Short text only — ElGamal encrypts character by character using large numbers.",
+    keyHint: "No key needed — ElGamal uses the generated key pair shown below.",
+    validateKey: () => null,
+    validateMessage: () => null,
+  },
+};
+
+function setMode(newMode) {
+  if (mode === newMode) return;
+  mode = newMode;
+  document.getElementById("btnEncrypt").classList.toggle("active", mode === "encrypt");
+  document.getElementById("btnDecrypt").classList.toggle("active", mode === "decrypt");
+  document.getElementById("inputLabel").textContent = mode === "encrypt" ? "Plaintext" : "Ciphertext";
+  document.getElementById("outputLabel").textContent = mode === "encrypt" ? "Ciphertext" : "Plaintext";
+
+  // Swap input and output values when toggling
+  const inputEl = document.getElementById("inputText");
+  const outputEl = document.getElementById("output");
+  if (outputIsResult && outputEl.value) {
+    inputEl.value = outputEl.value;
+  }
+  update();
+}
+
+function togglePrivateKey() {
+  const field = document.getElementById("privatekey");
+  const placeholder = document.getElementById("privatekeyPlaceholder");
+  const btn = document.getElementById("togglePrivateKey");
+  const isHidden = field.style.display === "none";
+  field.style.display = isHidden ? "block" : "none";
+  placeholder.style.display = isHidden ? "none" : "flex";
+  btn.textContent = isHidden ? "Hide" : "Show";
+}
+
+function toggleElgamalPrivateKey() {
+  const field = document.getElementById("elgamalPrivateKey");
+  const placeholder = document.getElementById("elgamalPrivatekeyPlaceholder");
+  const btn = document.getElementById("toggleElgamalPrivateKey");
+  const isHidden = field.style.display === "none";
+  field.style.display = isHidden ? "block" : "none";
+  placeholder.style.display = isHidden ? "none" : "flex";
+  btn.textContent = isHidden ? "Hide" : "Show";
+}
+
+
+function updateHints() {
+  const algo = document.getElementById("algorithm").value;
+  const info = ALGO_INFO[algo];
+  document.getElementById("messageHint").textContent = info.messageHint;
+  document.getElementById("keyHint").textContent = info.keyHint;
+}
+
+function getValidationErrors() {
+  const algo = document.getElementById("algorithm").value;
+  const text = document.getElementById("inputText").value;
+  const key = document.getElementById("key").value;
+  const info = ALGO_INFO[algo];
+  const keyValidation = key !== "" ? info.validateKey(key) : null;
+  const msgValidation = text !== "" ? info.validateMessage(text, mode) : null;
+  return { keyValidation, msgValidation };
+}
+
+let outputIsResult = false;
+
+function setOutput(msg, isResult = true) {
+  document.getElementById("output").value = msg;
+  outputIsResult = isResult;
+}
+
+function update() {
+  const algo = document.getElementById("algorithm").value;
+  const text = document.getElementById("inputText").value;
+  const key = document.getElementById("key").value;
+  const rsaSection = document.getElementById("rsaSection");
+
+  document.getElementById("publickey").value = rsa.getPublicKey();
+  document.getElementById("privatekey").value = rsa.getPrivateKey();
+  rsaSection.style.display = (algo === "rsa") ? "block" : "none";
+
+  const elgamalSection = document.getElementById("elgamalSection");
+  elgamalSection.style.display = (algo === "elgamal") ? "block" : "none";
+  if (algo === "elgamal") {
+    const { p, g, y, x } = EG;
+    document.getElementById("elgamalPublicKey").value = `p = ${p}\ng = ${g}\ny = ${y}`;
+    document.getElementById("elgamalPrivateKey").value = `x = ${x}`;
+  }
+
+  updateHints();
+
+  const { keyValidation, msgValidation } = getValidationErrors();
+
+  // Show prompt if fields are empty
+  const keyNeeded = algo !== "rsa" && algo !== "elgamal";
+  const missing = [];
+  if (text === "") missing.push(mode === "encrypt" ? "a plaintext message" : "a ciphertext");
+  if (keyNeeded && key === "") missing.push("a key/shift");
+
+  if (missing.length > 0) {
+    setOutput("Input " + missing.join(" and ") + " to get started.", false);
+    return;
+  }
+
+  // Show validation errors in the output field
+  const errors = [msgValidation, keyValidation].filter(Boolean);
+  if (errors.length > 0) {
+    setOutput("⚠ " + errors.join("\n⚠ "), false);
+    return;
+  }
+
+  let result = "";
+
+  if (mode === "encrypt") {
+    if (algo === "rsa")      result = rsa.encrypt(text) || "RSA encryption failed.";
+    if (algo === "caesar")   result = caesar(text, parseInt(key));
+    if (algo === "vigenere") result = vigenere(text, key);
+    if (algo === "xor")      result = btoa(xorCipher(text, key));
+    if (algo === "aes")      result = CryptoJS.AES.encrypt(text, key).toString();
+    if (algo === "elgamal")  result = elgamalEncrypt(text);
+  } else {
+    if (algo === "rsa")      result = rsa.decrypt(text) || "RSA decryption failed — ensure you are using ciphertext from this session.";
+    if (algo === "caesar")   result = caesarDecrypt(text, parseInt(key));
+    if (algo === "vigenere") result = vigenereDecrypt(text, key);
+    if (algo === "xor")      result = xorCipher(atob(text), key);
+    if (algo === "elgamal")  result = elgamalDecrypt(text);
+    if (algo === "aes") {
+      try {
+        const bytes = CryptoJS.AES.decrypt(text, key);
+        result = bytes.toString(CryptoJS.enc.Utf8) || "AES decryption failed — check your key and ciphertext.";
+      } catch (e) {
+        result = "AES decryption failed — check your key and ciphertext.";
+      }
+    }
+  }
+
+  setOutput(result);
+}
+
+/* ── Encryption functions ── */
+
+function caesar(text, shift) {
+  text = text.toUpperCase();
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    let c = text.charCodeAt(i);
+    if (c >= 65 && c <= 90) {
+      result += String.fromCharCode((c - 65 + shift) % 26 + 65);
+    } else {
+      result += text[i];
+    }
+  }
+  return result;
+}
+
+function vigenere(text, key) {
+  text = text.toUpperCase();
+  key = key.toUpperCase();
+  let result = "";
+  let k = 0;
+  for (let i = 0; i < text.length; i++) {
+    let c = text.charCodeAt(i);
+    if (c >= 65 && c <= 90) {
+      let shift = key.charCodeAt(k % key.length) - 65;
+      result += String.fromCharCode((c - 65 + shift) % 26 + 65);
+      k++;
+    } else {
+      result += text[i];
+    }
+  }
+  return result;
+}
+
+function xorCipher(text, key) {
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return result;
+}
+
+/* ── Decryption functions ── */
+
+function caesarDecrypt(text, shift) {
+  return caesar(text, (26 - (shift % 26)) % 26);
+}
+
+function vigenereDecrypt(text, key) {
+  text = text.toUpperCase();
+  key = key.toUpperCase();
+  let result = "";
+  let k = 0;
+  for (let i = 0; i < text.length; i++) {
+    let c = text.charCodeAt(i);
+    if (c >= 65 && c <= 90) {
+      let shift = key.charCodeAt(k % key.length) - 65;
+      result += String.fromCharCode((c - 65 - shift + 26) % 26 + 65);
+      k++;
+    } else {
+      result += text[i];
+    }
+  }
+  return result;
+}
+
+/* ── Event listeners ── */
+document.getElementById("inputText").addEventListener("input", update);
+document.getElementById("key").addEventListener("input", () => {
+  const algo = document.getElementById("algorithm").value;
+  if (algo !== "rsa" && algo !== "elgamal") update();
+});
+document.getElementById("algorithm").addEventListener("change", update);
+
+// Show hints and initial prompt on load
+update();
+</script>
+</div>
+<div class="qut-footer"></div>
 </body>
 </html>
