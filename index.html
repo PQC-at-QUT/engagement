@@ -108,15 +108,12 @@ label, h3 {
 
 <header class="qut-header">
   <a href="https://www.qut.edu.au" target="_blank">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50" height="44">
-      <text x="4" y="40" font-family="Arial Black, Arial" font-weight="900" font-size="46" fill="#ffffff" letter-spacing="-2">QUT</text>
-    </svg>
+    <img src="QUTforPQC.png" alt="QUT for PQC logo" height="128" style="display:block;">
   </a>
   <span class="qut-header-title">Cryptography Demo</span>
 </header>
 
 <div class="page-content">
-<h1>Cryptography Demo</h1>
 <nav><a href="rsa_activity.html">RSA Activity</a></nav>
 
 <div class="mode-toggle">
@@ -277,7 +274,7 @@ const ALGO_INFO = {
     validateMessage: () => null,
   },
   xor: {
-    messageHint: "Any text. Note: XOR output may contain non-printable characters.",
+    messageHint: "Any text.",
     keyHint: "Any text string. Using the same key again will decrypt the result.",
     validateKey: () => null,
     validateMessage: () => null,
@@ -308,6 +305,7 @@ const ALGO_INFO = {
 };
 
 function setMode(newMode) {
+  if (mode === newMode) return;
   mode = newMode;
   document.getElementById("btnEncrypt").classList.toggle("active", mode === "encrypt");
   document.getElementById("btnDecrypt").classList.toggle("active", mode === "decrypt");
@@ -414,14 +412,14 @@ function update() {
     if (algo === "rsa")      result = rsa.encrypt(text) || "RSA encryption failed.";
     if (algo === "caesar")   result = caesar(text, parseInt(key));
     if (algo === "vigenere") result = vigenere(text, key);
-    if (algo === "xor")      result = xorCipher(text, key);
+    if (algo === "xor")      result = btoa(xorCipher(text, key));
     if (algo === "aes")      result = CryptoJS.AES.encrypt(text, key).toString();
     if (algo === "elgamal")  result = elgamalEncrypt(text);
   } else {
     if (algo === "rsa")      result = rsa.decrypt(text) || "RSA decryption failed — ensure you are using ciphertext from this session.";
     if (algo === "caesar")   result = caesarDecrypt(text, parseInt(key));
     if (algo === "vigenere") result = vigenereDecrypt(text, key);
-    if (algo === "xor")      result = xorCipher(text, key);
+    if (algo === "xor")      result = xorCipher(atob(text), key);
     if (algo === "elgamal")  result = elgamalDecrypt(text);
     if (algo === "aes") {
       try {
